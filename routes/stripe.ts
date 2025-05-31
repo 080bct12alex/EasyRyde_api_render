@@ -3,7 +3,7 @@ import Stripe from "stripe";
 
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20"as any,
+  apiVersion: "2024-06-20" as any,
 });
 
 // Create payment
@@ -15,20 +15,22 @@ router.post("/create", async (req, res) => {
   }
 
   try {
+    // Check if customer exists
     let customer;
     const customers = await stripe.customers.list({ email });
-
     if (customers.data.length > 0) {
       customer = customers.data[0];
     } else {
       customer = await stripe.customers.create({ name, email });
     }
 
+    // Create ephemeral key for mobile
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: customer.id },
       { apiVersion: "2024-06-20" }
     );
 
+    // Create PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: parseInt(amount) * 100,
       currency: "usd",
@@ -56,12 +58,15 @@ router.post("/pay", async (req, res) => {
   }
 
   try {
+    // Attach payment method to customer
     await stripe.paymentMethods.attach(payment_method_id, {
       customer: customer_id,
     });
 
+    // Confirm the PaymentIntent with the return_url
     const result = await stripe.paymentIntents.confirm(payment_intent_id, {
       payment_method: payment_method_id,
+      return_url: "easyryde://book-ride", // ✅ Added the return_url for redirects
     });
 
     res.json({ success: true, message: "Payment successful", result });
