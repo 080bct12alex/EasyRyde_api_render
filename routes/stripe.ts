@@ -3,7 +3,7 @@ import Stripe from "stripe";
 
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20" as any,
+  apiVersion: "2024-06-20"as any,
 });
 
 // Create payment
@@ -43,6 +43,30 @@ router.post("/create", async (req, res) => {
     });
   } catch (error) {
     console.error("Stripe create error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Confirm payment
+router.post("/pay", async (req, res) => {
+  const { payment_method_id, payment_intent_id, customer_id } = req.body;
+
+  if (!payment_method_id || !payment_intent_id || !customer_id) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    await stripe.paymentMethods.attach(payment_method_id, {
+      customer: customer_id,
+    });
+
+    const result = await stripe.paymentIntents.confirm(payment_intent_id, {
+      payment_method: payment_method_id,
+    });
+
+    res.json({ success: true, message: "Payment successful", result });
+  } catch (error) {
+    console.error("Stripe confirm error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
